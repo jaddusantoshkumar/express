@@ -97,6 +97,8 @@ Create a Jenkins webhook
   - Choose "Secret text" as the kind of credentials.
   - Enter your DockerHub credentials (Username and Password) and give the credentials an ID (e.g., "docker").
   - Click "OK" to save your DockerHub credentials.
+**Configure Github webhook for Continuous Integration**
+- Go to Github repository settings -> webhook -> give jenkins url 'http://<jenkins-server-url>/github-webhook/'.
 
 3. **Configure CI/CD Pipeline in Jenkins:**
 - Create a CI/CD pipeline in Jenkins to automate your application deployment.
