@@ -1,12 +1,6 @@
 # Deploying simple web application on Kubernetes using Docker and Jenkins
 
 This project contains a simple Express.js application that is containerized using Docker and can be deployed to Kubernetes and Jenkins for CI/CD process.
-
-## Prerequisites
-
-- Docker installed on your machine
-- Kubernetes cluster configured
-- Jenkins pipeline set up with nodejs, git and Docker plugins and configured with credentials.
   
 ## Project Structure
 
