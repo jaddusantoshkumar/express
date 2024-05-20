@@ -1,256 +1,153 @@
-[![Express Logo](https://i.cloudup.com/zfY6lL7eFa-3000x3000.png)](http://expressjs.com/)
+# Deploying simple web application on Kubernetes using Jenkins
 
-**Fast, unopinionated, minimalist web framework for [Node.js](http://nodejs.org).**
+# Express Dockerized Application
 
-**This project has a [Code of Conduct][].**
+This project contains a simple Express.js application that is containerized using Docker and can be deployed to Kubernetes and Jenkins for CI/CD process.
 
-## Table of contents
+## Prerequisites
 
-* [Installation](#Installation)
-* [Features](#Features)
-* [Docs & Community](#docs--community)
-* [Quick Start](#Quick-Start)
-* [Running Tests](#Running-Tests)
-* [Philosophy](#Philosophy)
-* [Examples](#Examples)
-* [Contributing to Express](#Contributing)
-* [TC (Technical Committee)](#tc-technical-committee)
-* [Triagers](#triagers)
-* [License](#license)
+- Docker installed on your machine
+- Kubernetes cluster configured
+- Jenkins pipeline set up with nodejs, git and Docker plugins and configured with credentials.
+  
+## Project Structure
+
+- `Jenkinsfile`: Contains the Jenkins pipeline configuration for continuous integration.
+- `Dockerfile`: Contains the Docker configuration to containerize the application.
+- `deployment.yaml`: Contains the Kubernetes Deployment configuration to deploy the application on a Kubernetes cluster.
+- `service.yaml`: Contains the Kubernetes Service configuration to expose the application to the outside world.
+- `/examples/hello-world/index.js`: Contains the Express application code.
+
+### **Step by step guide for the project**
+
+**Step 1: Launch EC2 (Ubuntu 22.04):**
+
+- Provision an EC2 instance on AWS with Ubuntu 22.04.
+- Connect to the instance using SSH.
+  
+**Step 2: Install Docker**
+
+- Set up Docker on the EC2 instance:
+    
+    ```bash
+    
+    sudo apt-get update
+    sudo apt-get install docker.io -y
+    sudo usermod -aG docker $USER  # Replace with your system's username, e.g., 'ubuntu'
+    newgrp docker
+    sudo chmod 777 /var/run/docker.sock
+    ```
+**Step 3: Setting up kubectl and its configuration**
+
+- Install kubectl from official documentation and set it to use required cluster
+
+    ```bash
+    curl -LO https://dl.k8s.io/release/v1.23.0/bin/linux/amd64/kubectl
+    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    #updating kube-config
+    aws eks --region <region> update-kubeconfig --name <cluster-name>
+    
+**Step 4: CI/CD Setup**
+
+1. **Install Jenkins for Automation:**
+    - Install Jenkins on the EC2 instance to automate deployment:
+    Install Java
+    
+    ```bash
+    sudo apt update
+    sudo apt install fontconfig openjdk-17-jre
+    java -version
+    openjdk version "17.0.8" 2023-07-18
+    OpenJDK Runtime Environment (build 17.0.8+7-Debian-1deb12u1)
+    OpenJDK 64-Bit Server VM (build 17.0.8+7-Debian-1deb12u1, mixed mode, sharing)
+    
+    #jenkins
+    sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
+    https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+    echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+    https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+    /etc/apt/sources.list.d/jenkins.list > /dev/null
+    sudo apt-get update
+    sudo apt-get install jenkins
+    sudo systemctl start jenkins
+    sudo systemctl enable jenkins
+    # add jenkins user to Docker group
+    sudo su
+    sudo usermod -aG docker jenkins
+    sudo systemctl restart jenkins
+    ```
+    
+    - Access Jenkins in a web browser using the public IP of your EC2 instance.
+        
+        publicIp:8080
+2. **Install Necessary Plugins in Jenkins:**
+
+Goto Manage Jenkins →Plugins → Available Plugins →
+
+Install below plugins
+
+1 NodeJs Plugin
+
+2 Docker related plugins
+
+### **Configure Docker and Nodejs in Global Tool Configuration**
+
+Goto Manage Jenkins → Tools → Install Docker and NodeJs(22.2.0)→ Click on Apply and Save
+Create a Jenkins webhook
 
 
-[![NPM Version][npm-version-image]][npm-url]
-[![NPM Install Size][npm-install-size-image]][npm-install-size-url]
-[![NPM Downloads][npm-downloads-image]][npm-downloads-url]
+**Add DockerHub Credentials:**
 
-```js
-const express = require('express')
-const app = express()
+- To securely handle DockerHub credentials in your Jenkins pipeline, follow these steps:
+  - Go to "Dashboard" → "Manage Jenkins" → "Manage Credentials."
+  - Click on "System" and then "Global credentials (unrestricted)."
+  - Click on "Add Credentials" on the left side.
+  - Choose "Secret text" as the kind of credentials.
+  - Enter your DockerHub credentials (Username and Password) and give the credentials an ID (e.g., "docker").
+  - Click "OK" to save your DockerHub credentials.
 
-app.get('/', function (req, res) {
-  res.send('Hello World')
-})
+3. **Configure CI/CD Pipeline in Jenkins:**
+- Create a CI/CD pipeline in Jenkins to automate your application deployment.
 
-app.listen(3000)
+```groovy
+pipeline {
+    agent any
+    tools {
+        nodejs 'node'
+    }
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+        stage('Git Checkout') {
+            steps {
+                git branch: 'master', url: 'https://github.com/jaddusantoshkumar/express.git'
+            }
+        }
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                        sh '''
+                        docker build -t jaddusantoshkumar/example:latest .
+                        docker push jaddusantoshkumar/example:latest
+                        '''
+                    }
+                }
+            }
+        }
+        stage('Deploy Application') {
+            steps {
+                sh '''
+                kubectl apply -f deployment.yaml
+                kubectl apply -f service.yaml
+                '''
+            }
+        }
+    }
+}
 ```
 
-## Installation
 
-This is a [Node.js](https://nodejs.org/en/) module available through the
-[npm registry](https://www.npmjs.com/).
-
-Before installing, [download and install Node.js](https://nodejs.org/en/download/).
-Node.js 0.10 or higher is required.
-
-If this is a brand new project, make sure to create a `package.json` first with
-the [`npm init` command](https://docs.npmjs.com/creating-a-package-json-file).
-
-Installation is done using the
-[`npm install` command](https://docs.npmjs.com/getting-started/installing-npm-packages-locally):
-
-```console
-$ npm install express
-```
-
-Follow [our installing guide](http://expressjs.com/en/starter/installing.html)
-for more information.
-
-## Features
-
-  * Robust routing
-  * Focus on high performance
-  * Super-high test coverage
-  * HTTP helpers (redirection, caching, etc)
-  * View system supporting 14+ template engines
-  * Content negotiation
-  * Executable for generating applications quickly
-
-## Docs & Community
-
-  * [Website and Documentation](http://expressjs.com/) - [[website repo](https://github.com/expressjs/expressjs.com)]
-  * [#express](https://web.libera.chat/#express) on [Libera Chat](https://libera.chat) IRC
-  * [GitHub Organization](https://github.com/expressjs) for Official Middleware & Modules
-  * Visit the [Wiki](https://github.com/expressjs/express/wiki)
-  * [Google Group](https://groups.google.com/group/express-js) for discussion
-  * [Gitter](https://gitter.im/expressjs/express) for support and discussion
-
-**PROTIP** Be sure to read [Migrating from 3.x to 4.x](https://github.com/expressjs/express/wiki/Migrating-from-3.x-to-4.x) as well as [New features in 4.x](https://github.com/expressjs/express/wiki/New-features-in-4.x).
-
-## Quick Start
-
-  The quickest way to get started with express is to utilize the executable [`express(1)`](https://github.com/expressjs/generator) to generate an application as shown below:
-
-  Install the executable. The executable's major version will match Express's:
-
-```console
-$ npm install -g express-generator@4
-```
-
-  Create the app:
-
-```console
-$ express /tmp/foo && cd /tmp/foo
-```
-
-  Install dependencies:
-
-```console
-$ npm install
-```
-
-  Start the server:
-
-```console
-$ npm start
-```
-
-  View the website at: http://localhost:3000
-
-## Philosophy
-
-  The Express philosophy is to provide small, robust tooling for HTTP servers, making
-  it a great solution for single page applications, websites, hybrids, or public
-  HTTP APIs.
-
-  Express does not force you to use any specific ORM or template engine. With support for over
-  14 template engines via [Consolidate.js](https://github.com/tj/consolidate.js),
-  you can quickly craft your perfect framework.
-
-## Examples
-
-  To view the examples, clone the Express repo and install the dependencies:
-
-```console
-$ git clone https://github.com/expressjs/express.git --depth 1
-$ cd express
-$ npm install
-```
-
-  Then run whichever example you want:
-
-```console
-$ node examples/content-negotiation
-```
-
-## Contributing
-
-  [![Linux Build][github-actions-ci-image]][github-actions-ci-url]
-  [![Windows Build][appveyor-image]][appveyor-url]
-  [![Test Coverage][coveralls-image]][coveralls-url]
-
-The Express.js project welcomes all constructive contributions. Contributions take many forms,
-from code for bug fixes and enhancements, to additions and fixes to documentation, additional
-tests, triaging incoming pull requests and issues, and more!
-
-See the [Contributing Guide](Contributing.md) for more technical details on contributing.
-
-### Security Issues
-
-If you discover a security vulnerability in Express, please see [Security Policies and Procedures](Security.md).
-
-### Running Tests
-
-To run the test suite, first install the dependencies, then run `npm test`:
-
-```console
-$ npm install
-$ npm test
-```
-
-## People
-
-The original author of Express is [TJ Holowaychuk](https://github.com/tj)
-
-The current lead maintainer is [Douglas Christopher Wilson](https://github.com/dougwilson)
-
-[List of all contributors](https://github.com/expressjs/express/graphs/contributors)
-
-### TC (Technical Committee)
-
-* [UlisesGascon](https://github.com/UlisesGascon) - **Ulises Gascón** (he/him)
-* [jonchurch](https://github.com/jonchurch) - **Jon Church**
-* [wesleytodd](https://github.com/wesleytodd) - **Wes Todd**
-* [LinusU](https://github.com/LinusU) - **Linus Unnebäck**
-* [blakeembrey](https://github.com/blakeembrey) - **Blake Embrey**
-* [sheplu](https://github.com/sheplu) - **Jean Burellier**
-* [crandmck](https://github.com/crandmck) - **Rand McKinney**
-
-<details>
-<summary>TC emeriti members</summary>
-
-#### TC emeriti members
-
-  * [dougwilson](https://github.com/dougwilson) - **Douglas Wilson**
-  * [hacksparrow](https://github.com/hacksparrow) - **Hage Yaapa**
-  * [jonathanong](https://github.com/jonathanong) - **jongleberry**
-  * [niftylettuce](https://github.com/niftylettuce) - **niftylettuce**
-  * [troygoode](https://github.com/troygoode) - **Troy Goode**
-</details>
-
-
-### Triagers
-
-* [aravindvnair99](https://github.com/aravindvnair99) - **Aravind Nair**
-* [carpasse](https://github.com/carpasse) - **Carlos Serrano**
-* [CBID2](https://github.com/CBID2) - **Christine Belzie**
-* [enyoghasim](https://github.com/enyoghasim) - **David Enyoghasim**
-* [UlisesGascon](https://github.com/UlisesGascon) - **Ulises Gascón** (he/him)
-* [mertcanaltin](https://github.com/mertcanaltin) - **Mert Can Altin**
-* [0ss](https://github.com/0ss) - **Salah**
-* [import-brain](https://github.com/import-brain) - **Eric Cheng** (he/him)
-* [3imed-jaberi](https://github.com/3imed-jaberi) - **Imed Jaberi**
-* [dakshkhetan](https://github.com/dakshkhetan) - **Daksh Khetan** (he/him)
-* [lucasraziel](https://github.com/lucasraziel) - **Lucas Soares Do Rego**
-* [Sushmeet](https://github.com/Sushmeet) - **Sushmeet Sunger**
-
-<details>
-<summary>Triagers emeriti members</summary>
-
-#### Emeritus Triagers
-
-  * [AuggieH](https://github.com/AuggieH) - **Auggie Hudak**
-  * [G-Rath](https://github.com/G-Rath) - **Gareth Jones**
-  * [MohammadXroid](https://github.com/MohammadXroid) - **Mohammad Ayashi**
-  * [NawafSwe](https://github.com/NawafSwe) - **Nawaf Alsharqi**
-  * [NotMoni](https://github.com/NotMoni) - **Moni**
-  * [VigneshMurugan](https://github.com/VigneshMurugan) - **Vignesh Murugan**
-  * [davidmashe](https://github.com/davidmashe) - **David Ashe**
-  * [digitaIfabric](https://github.com/digitaIfabric) - **David**
-  * [e-l-i-s-e](https://github.com/e-l-i-s-e) - **Elise Bonner**
-  * [fed135](https://github.com/fed135) - **Frederic Charette**
-  * [firmanJS](https://github.com/firmanJS) - **Firman Abdul Hakim**
-  * [getspooky](https://github.com/getspooky) - **Yasser Ameur**
-  * [ghinks](https://github.com/ghinks) - **Glenn**
-  * [ghousemohamed](https://github.com/ghousemohamed) - **Ghouse Mohamed**
-  * [gireeshpunathil](https://github.com/gireeshpunathil) - **Gireesh Punathil**
-  * [jake32321](https://github.com/jake32321) - **Jake Reed**
-  * [jonchurch](https://github.com/jonchurch) - **Jon Church**
-  * [lekanikotun](https://github.com/lekanikotun) - **Troy Goode**
-  * [marsonya](https://github.com/marsonya) - **Lekan Ikotun**
-  * [mastermatt](https://github.com/mastermatt) - **Matt R. Wilson**
-  * [maxakuru](https://github.com/maxakuru) - **Max Edell**
-  * [mlrawlings](https://github.com/mlrawlings) - **Michael Rawlings**
-  * [rodion-arr](https://github.com/rodion-arr) - **Rodion Abdurakhimov**
-  * [sheplu](https://github.com/sheplu) - **Jean Burellier**
-  * [tarunyadav1](https://github.com/tarunyadav1) - **Tarun yadav**
-  * [tunniclm](https://github.com/tunniclm) - **Mike Tunnicliffe**
-</details>
-
-
-## License
-
-  [MIT](LICENSE)
-
-[appveyor-image]: https://badgen.net/appveyor/ci/dougwilson/express/master?label=windows
-[appveyor-url]: https://ci.appveyor.com/project/dougwilson/express
-[coveralls-image]: https://badgen.net/coveralls/c/github/expressjs/express/master
-[coveralls-url]: https://coveralls.io/r/expressjs/express?branch=master
-[github-actions-ci-image]: https://badgen.net/github/checks/expressjs/express/master?label=linux
-[github-actions-ci-url]: https://github.com/expressjs/express/actions/workflows/ci.yml
-[npm-downloads-image]: https://badgen.net/npm/dm/express
-[npm-downloads-url]: https://npmcharts.com/compare/express?minimal=true
-[npm-install-size-image]: https://badgen.net/packagephobia/install/express
-[npm-install-size-url]: https://packagephobia.com/result?p=express
-[npm-url]: https://npmjs.org/package/express
-[npm-version-image]: https://badgen.net/npm/v/express
-[Code of Conduct]: https://github.com/expressjs/express/blob/master/Code-Of-Conduct.md
