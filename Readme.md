@@ -1,6 +1,4 @@
-# Deploying simple web application on Kubernetes using Jenkins
-
-# Express Dockerized Application
+# Deploying simple web application on Kubernetes using Docker and Jenkins
 
 This project contains a simple Express.js application that is containerized using Docker and can be deployed to Kubernetes and Jenkins for CI/CD process.
 
@@ -149,5 +147,8 @@ pipeline {
     }
 }
 ```
+**Step 4: Accessing the application**
+
+- Now you can access the application using any NodeIp:31000 as we are exposing application on 31000 port using Nodeport Service.
 
 
