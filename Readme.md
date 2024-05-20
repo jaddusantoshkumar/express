@@ -146,3 +146,5 @@ pipeline {
 - Now you can access the application using any NodeIp:31000 as we are exposing application on 31000 port using Nodeport Service.
 
 
+**We can add Security and Monitoring also for this project**
+**Any further improvements for this project will be greately appreciated.**
